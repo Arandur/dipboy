@@ -1,7 +1,6 @@
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub enum ProvinceKind {
     LAND,
-    COAST,
     SEA
 }
 
@@ -61,7 +60,7 @@ pub static PROVINCES: [Province; 74] = [
     Province { name: "Greece", kind: ProvinceKind::LAND, sc: true },
     Province { name: "Holland", kind: ProvinceKind::LAND, sc: true },
     Province { name: "Norway", kind: ProvinceKind::LAND, sc: true },
-    Province { name: "North_Africa", kind: ProvinceKind::LAND, sc: false },
+    Province { name: "North Africa", kind: ProvinceKind::LAND, sc: false },
     Province { name: "Portugal", kind: ProvinceKind::LAND, sc: true },
     Province { name: "Rumania", kind: ProvinceKind::LAND, sc: true },
     Province { name: "Serbia", kind: ProvinceKind::LAND, sc: true },
