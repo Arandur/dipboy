@@ -11,7 +11,69 @@ pub trait Parser<'a> : Clone {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct Tag<'a> {
+struct Never;
+
+impl <'a> Parser<'a> for Never {
+    type Item = !;
+    type Result = NeverParse<'a>;
+
+    fn parse(&self, _: &str) -> NeverParse<'a> {
+        NeverParse {
+            data: PhantomData
+        }
+    }
+}
+
+pub fn never<'a>() -> impl Parser<'a, Item = !> {
+    Never
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+struct NeverParse<'a> {
+    data: PhantomData<&'a ()>
+}
+
+impl <'a> Iterator for NeverParse<'a> {
+    type Item = (!, &'a str);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        None
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+struct Empty;
+
+impl <'a> Parser<'a> for Empty {
+    type Item = ();
+    type Result = EmptyParse<'a>;
+
+    fn parse(&self, s: &'a str) -> EmptyParse<'a> {
+        EmptyParse {
+            s: Some(s)
+        }
+    }
+}
+
+pub fn empty<'a>() -> impl Parser<'a, Item = ()> {
+    Empty
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+struct EmptyParse<'a> {
+    s: Option<&'a str>
+}
+
+impl <'a> Iterator for EmptyParse<'a> {
+    type Item = ((), &'a str);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        mem::replace(&mut self.s, None).map(|s| ((), s))
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+struct Tag<'a> {
     tag: &'a str
 }
 
@@ -27,12 +89,12 @@ impl <'a> Parser<'a> for Tag<'a> {
     }
 }
 
-pub fn tag<'a>(value: &'a str) -> Tag<'a> {
+pub fn tag<'a>(value: &'a str) -> impl Parser<'a, Item = &'a str> {
     Tag { tag: value }
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct TagParse<'a> {
+struct TagParse<'a> {
     s: &'a str,
     tag: Option<&'a str>
 }
@@ -52,7 +114,7 @@ impl <'a> Iterator for TagParse<'a> {
 }
 
 #[derive(Clone)]
-pub struct Optional<'a, T: Parser<'a>> {
+struct Optional<'a, T: Parser<'a>> {
     inner: T,
     data: PhantomData<&'a ()>
 }
@@ -69,7 +131,7 @@ impl <'a, T: Parser<'a>> Parser<'a> for Optional<'a, T> {
     }
 }
 
-pub fn optional<'a, T: Parser<'a>>(p: T) -> Optional<'a, T> {
+pub fn optional<'a, T: Parser<'a>>(p: T) -> impl Parser<'a, Item = Option<<T as Parser<'a>>::Item>> {
     Optional {
         inner: p,
         data: PhantomData
@@ -77,7 +139,7 @@ pub fn optional<'a, T: Parser<'a>>(p: T) -> Optional<'a, T> {
 }
 
 #[derive(Clone)]
-pub struct OptionalParse<'a, T: Parser<'a>> {
+struct OptionalParse<'a, T: Parser<'a>> {
     s: &'a str,
     inner: Option<<T as Parser<'a>>::Result>
 }
@@ -100,7 +162,7 @@ impl <'a, T: Parser<'a>> Iterator for OptionalParse<'a, T> {
 }
 
 #[derive(Clone)]
-pub struct Either<'a, T: Parser<'a>, U: Parser<'a>> {
+struct Either<'a, T: Parser<'a>, U: Parser<'a>> {
     left: T,
     right: U,
     data: PhantomData<&'a ()>
@@ -118,7 +180,7 @@ impl <'a, T: Parser<'a>, U: Parser<'a>> Parser<'a> for Either<'a, T, U> {
     }
 }
 
-pub fn either<'a, T: Parser<'a>, U: Parser<'a>>(left: T, right: U) -> Either<'a, T, U> {
+pub fn either<'a, T: Parser<'a>, U: Parser<'a>>(left: T, right: U) -> impl Parser<'a, Item = types::Either<<T as Parser<'a>>::Item, <U as Parser<'a>>::Item>> {
     Either {
         left: left,
         right: right,
@@ -127,7 +189,7 @@ pub fn either<'a, T: Parser<'a>, U: Parser<'a>>(left: T, right: U) -> Either<'a,
 }
 
 #[derive(Clone)]
-pub struct EitherParse<'a, T: Parser<'a>, U: Parser<'a>> {
+struct EitherParse<'a, T: Parser<'a>, U: Parser<'a>> {
     left: Option<<T as Parser<'a>>::Result>,
     right: Option<<U as Parser<'a>>::Result>
 }
@@ -157,7 +219,7 @@ impl <'a, T: Parser<'a>, U: Parser<'a>> Iterator for EitherParse<'a, T, U> {
 }
 
 #[derive(Clone)]
-pub struct Chain<'a, T: Parser<'a>, U: Parser<'a>> 
+struct Chain<'a, T: Parser<'a>, U: Parser<'a>> 
     where <T as Parser<'a>>::Item: Clone + Sized {
    first: T,
    second: U,
@@ -178,7 +240,7 @@ impl <'a, T: Parser<'a>, U: Parser<'a>> Parser<'a> for Chain<'a, T, U>
     }
 }
 
-pub fn chain<'a, T: Parser<'a>, U: Parser<'a>>(first: T, second: U) -> Chain<'a, T, U>
+pub fn chain<'a, T: Parser<'a>, U: Parser<'a>>(first: T, second: U) -> impl Parser<'a, Item = (<T as Parser<'a>>::Item, <U as Parser<'a>>::Item)>
     where <T as Parser<'a>>::Item: Clone + Sized {
     Chain {
         first: first,
@@ -188,7 +250,7 @@ pub fn chain<'a, T: Parser<'a>, U: Parser<'a>>(first: T, second: U) -> Chain<'a,
 }
 
 #[derive(Clone)]
-pub struct ChainParse<'a, T: Parser<'a>, U: Parser<'a>> 
+struct ChainParse<'a, T: Parser<'a>, U: Parser<'a>> 
     where <T as Parser<'a>>::Item: Clone + Sized {
     first_it: <T as Parser<'a>>::Result,
     second: U,
@@ -223,7 +285,7 @@ impl <'a, T: Parser<'a>, U: Parser<'a>> Iterator for ChainParse<'a, T, U>
     }
 }
 
-pub struct Map<'a, T, R, F> 
+struct Map<'a, T, R, F> 
     where T: Parser<'a>,
           F: Fn(<T as Parser<'a>>::Item) -> R + Clone {
     inner: T,
@@ -258,9 +320,10 @@ impl <'a, T, R, F> Parser<'a> for Map<'a, T, R, F>
     }
 }
 
-fn map<'a, T, R, F>(inner: T, func: F) -> Map<'a, T, R, F>
+fn map<'a, T, R, F>(inner: T, func: F) -> impl Parser<'a, Item = R>
     where T: Parser<'a>,
-          F: Fn(<T as Parser<'a>>::Item) -> R + Clone {
+          F: Fn(<T as Parser<'a>>::Item) -> R + Clone,
+          R: 'a {
     Map {
         inner: inner,
         func: func,
@@ -268,7 +331,7 @@ fn map<'a, T, R, F>(inner: T, func: F) -> Map<'a, T, R, F>
     }
 }
 
-pub struct MapParse<'a, T, R, F> 
+struct MapParse<'a, T, R, F> 
     where T: Parser<'a>,
           F: Fn(<T as Parser<'a>>::Item) -> R + Clone {
     inner: <T as Parser<'a>>::Result,
@@ -301,6 +364,14 @@ impl <'a, T, R, F> Iterator for MapParse<'a, T, R, F>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn never_test() {
+        let parser = never();
+        let mut results = parser.parse("abcde");
+
+        assert_eq!(results.next(), None);
+    }
 
     #[test]
     fn tag_test() {
