@@ -51,7 +51,7 @@ impl <'a> Iterator for TagParse<'a> {
 
 pub struct Optional<'a, T: Parser<'a>> {
     inner: T,
-    data: PhantomData<&'a T>
+    data: PhantomData<&'a ()>
 }
 
 impl <'a, T: Parser<'a>> Parser<'a> for Optional<'a, T> {
@@ -73,13 +73,13 @@ pub fn optional<'a, T: Parser<'a>>(p: T) -> Optional<'a, T> {
     }
 }
 
-pub struct OptionalParse<'a, P: Parser<'a>> {
+pub struct OptionalParse<'a, T: Parser<'a>> {
     s: &'a str,
-    inner: Option<<P as Parser<'a>>::Result>
+    inner: Option<<T as Parser<'a>>::Result>
 }
 
-impl <'a, P: Parser<'a>> Iterator for OptionalParse<'a, P> {
-    type Item = (Option<<P as Parser<'a>>::Item>, &'a str);
+impl <'a, T: Parser<'a>> Iterator for OptionalParse<'a, T> {
+    type Item = (Option<<T as Parser<'a>>::Item>, &'a str);
 
     fn next(&mut self) -> Option<Self::Item> {
         match &mut self.inner {
@@ -98,7 +98,7 @@ impl <'a, P: Parser<'a>> Iterator for OptionalParse<'a, P> {
 pub struct Either<'a, T: Parser<'a>, U: Parser<'a>> {
     left: T,
     right: U,
-    data: PhantomData<&'a T>
+    data: PhantomData<&'a ()>
 }
 
 impl <'a, T: Parser<'a>, U: Parser<'a>> Parser<'a> for Either<'a, T, U> {
@@ -149,6 +149,14 @@ impl <'a, T: Parser<'a>, U: Parser<'a>> Iterator for EitherParse<'a, T, U> {
         }
     }
 }
+
+pub struct Chain<'a, T: Parser<'a>, U: Parser<'a>> {
+   first: T,
+   second: U,
+   data: PhantomData<&'a ()>
+}
+
+
 
 #[cfg(test)]
 mod tests {
